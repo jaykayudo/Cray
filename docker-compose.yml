@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    container_name: cray-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cray_voting
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cray-network
+
+  backend:
+    build:
+      context: ./cray-backend
+      dockerfile: ./cray-backend/Dockerfile
+    container_name: cray-backend
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_DATABASE=cray_voting
+      - JWT_SECRET=your_jwt_secret_key_here
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+    networks:
+      - cray-network
+
+  frontend:
+    build:
+      context: ./cray-frontend
+      dockerfile: ./cray-frontend/Dockerfile
+    container_name: cray-frontend
+    
+
+volumes:
+  postgres_data:
+
+networks:
+  cray-network:
+    driver: bridge 

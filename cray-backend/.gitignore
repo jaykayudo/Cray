@@ -1,0 +1,59 @@
+# === Node.js ===
+node_modules/
+.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.pnpm-debug.log
+dist/
+build/
+
+# Optional: ignore compiled TypeScript (if using TS)
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Logs
+logs/
+*.log
+*.gz
+
+# === React (Frontend) ===
+**/node_modules/
+**/build/
+**/dist/
+**/coverage/
+**/public/static/
+
+# .env files (both frontend and backend)
+**/.env
+**/.env.*.local
+**/.env.local
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# === Others ===
+# Mac .DS_Store files
+.DS_Store
+
+# Test coverage
+coverage/
+
+# Binaries and compiled files
+*.exe
+*.out
+*.app
+
+# eslint and prettier
+.eslintcache
+.prettiercache
