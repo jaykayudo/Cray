@@ -1,5 +1,6 @@
 import { UltraHonkBackend } from '@aztec/bb.js';
 import { CompiledCircuit } from '@noir-lang/types';
+import { Conversions } from './conversions';
 
 // Load compiled circuits from src/compiled_circuits
 const checkAgeCircuit = require('../compiled_circuits/check_age.json') as CompiledCircuit;
@@ -33,14 +34,19 @@ export class ProofVerification {
     }
 
     static async verifyCountryProof(proof: string, publicInputs: { country: string }): Promise<boolean> {
-        return this.verifyProof(checkCountryCircuit, proof, publicInputs);
+        const countryField = Conversions.stringToNoirField(publicInputs.country);
+        return this.verifyProof(checkCountryCircuit, proof, { country: countryField });
     }
 
     static async verifyWhitelistProof(proof: string, publicInputs: { whitelist: string[] }): Promise<boolean> {
-        return this.verifyProof(checkWhitelistCircuit, proof, publicInputs);
+        const whitelistFields = publicInputs.whitelist.map(username => 
+            Conversions.stringToNoirField(username)
+        );
+        return this.verifyProof(checkWhitelistCircuit, proof, { whitelist: whitelistFields });
     }
 
     static async verifyPasswordProof(proof: string, publicInputs: { passwordHash: string }): Promise<boolean> {
-        return this.verifyProof(checkPasswordCircuit, proof, publicInputs);
+        const passwordHashField = Conversions.hexToNoirField(publicInputs.passwordHash);
+        return this.verifyProof(checkPasswordCircuit, proof, { passwordHash: passwordHashField });
     }
 } 
