@@ -1,0 +1,6 @@
+[package]
+name = "check_whitelist"
+type = "bin"
+authors = ["codebestia"]
+
+[dependencies]
