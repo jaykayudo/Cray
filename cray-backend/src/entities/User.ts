@@ -10,16 +10,10 @@ export class User {
     fullName: string;
 
     @Column({ unique: true })
-    email: string;
+    username: string;
 
     @Column()
     password: string;
-
-    @Column({ nullable: true })
-    age?: number;
-
-    @Column({ nullable: true })
-    country?: string;
 
     @CreateDateColumn()
     createdAt: Date;

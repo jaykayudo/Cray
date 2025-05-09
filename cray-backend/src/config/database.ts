@@ -1,5 +1,6 @@
 import { DataSource } from "typeorm";
 import { User } from "../entities/User";
+import { Campaign } from "../entities/Campaign";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -13,7 +14,7 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_DATABASE || "cray_voting",
     synchronize: true,
     logging: true,
-    entities: [User],
+    entities: [User, Campaign],
     subscribers: [],
     migrations: [],
 }); 
