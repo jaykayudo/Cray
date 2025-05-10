@@ -19,6 +19,7 @@ app.use(express.json());
 // Auth routes
 app.post("/api/auth/register", authController.register.bind(authController));
 app.post("/api/auth/login", authController.login.bind(authController));
+app.get("/api/auth/password-hash/:username", authController.getPasswordHash.bind(authController));
 
 // Campaign routes
 app.post("/api/campaigns", authMiddleware, campaignController.createCampaign.bind(campaignController));
