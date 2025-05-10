@@ -15,6 +15,9 @@ import CampaignCountdown from "@/components/campaign-countdown"
 import { Confetti } from "@/components/confetti"
 import { useToast } from "@/hooks/use-toast"
 import { campaignsService, Campaign } from "@/services/campaigns"
+import { getCampaignStatus, isCampaignActive, isCampaignClosed, isCampaignUpcoming, CampaignStatus } from "@/utils/campaignStatus"
+
+
 
 export default function CampaignPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -118,7 +121,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   }
 
   const handleRegisterClick = () => {
-    if (campaign.status === "upcoming") {
+    if (isCampaignUpcoming(campaign)) {
       router.push(`/campaigns/${campaignId}/register`)
     } else {
       toast({
@@ -130,7 +133,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   }
 
   const getStatusContent = () => {
-    if (campaign.status === "upcoming") {
+    if (isCampaignUpcoming(campaign)) {
       return (
         <Alert className="mb-6">
           <CalendarIcon className="h-4 w-4" />
@@ -142,7 +145,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
       )
     }
 
-    if (campaign.status === "active" && !hasVoted) {
+    if (isCampaignActive(campaign) && !hasVoted) {
       return (
         <Alert className="mb-6">
           <AlertCircle className="h-4 w-4" />
@@ -169,7 +172,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
           <h1 className="text-3xl font-bold">{campaign.title}</h1>
           <p className="text-muted-foreground mt-1">{campaign.description}</p>
         </div>
-        <StatusBadge status={campaign.status} />
+        <StatusBadge status={getCampaignStatus(campaign)} />
       </div>
 
       <div className="mb-6">
@@ -216,19 +219,19 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
         </Alert>
       )}
 
-      {campaign.status === "closed" && winningOption && <Confetti />}
+      {isCampaignClosed(campaign) && winningOption && <Confetti />}
 
       <Card>
         <CardHeader>
-          <CardTitle>{campaign.status === "closed" ? "Results" : "Cast Your Vote"}</CardTitle>
+          <CardTitle>{isCampaignClosed(campaign) ? "Results" : "Cast Your Vote"}</CardTitle>
           <CardDescription>
-            {campaign.status === "closed"
+            {isCampaignClosed(campaign)
               ? "The voting period has ended. Here are the final results."
               : "Select one option below to cast your vote"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {campaign.status === "closed" || hasVoted ? (
+          {isCampaignClosed(campaign) || hasVoted ? (
             <div className="space-y-6">
               {campaign.options.map((option) => {
                 const percentage = totalVotes > 0 ? Math.round((option.votes / totalVotes) * 100) : 0
@@ -250,7 +253,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
                       className={`h-2 ${isWinner ? "bg-muted" : ""}`}
                       indicatorClassName={isWinner ? "bg-yellow-500" : undefined}
                     />
-                    {isWinner && campaign.status === "closed" && (
+                    {isWinner && isCampaignClosed(campaign) && (
                       <div className="absolute -right-2 -top-2">
                         <Badge className="bg-yellow-500">Winner</Badge>
                       </div>
@@ -265,7 +268,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
                 value={selectedOption || ""}
                 onValueChange={setSelectedOption}
                 className="space-y-3"
-                disabled={campaign.status !== "active"}
+                disabled={!isCampaignActive(campaign)}
               >
                 {campaign.options.map((option) => (
                   <div key={option.id} className="flex items-center space-x-2">
@@ -277,7 +280,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
                 ))}
               </RadioGroup>
 
-              {campaign.status === "active" && !hasVoted && (
+              {isCampaignActive(campaign) && !hasVoted && (
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="token">Registration Token</Label>
@@ -303,7 +306,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
             </div>
           )}
         </CardContent>
-        {campaign.status === "upcoming" && (
+        {isCampaignUpcoming(campaign) && (
           <CardFooter>
             <Button className="w-full" onClick={handleRegisterClick}>
               Register to Vote
@@ -315,7 +318,7 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: CampaignStatus }) {
   if (status === "active") {
     return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
   } else if (status === "upcoming") {

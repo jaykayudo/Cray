@@ -7,11 +7,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { InfoIcon, CheckCircle2, ShieldAlert, Copy, ClipboardCheck, Lock, Shield } from "lucide-react"
+import { InfoIcon, CheckCircle2, ShieldAlert, Copy, ClipboardCheck, Lock, Shield, AlertCircle } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { campaignsService, Campaign } from "@/services/campaigns"
+import { NoirUtils } from "@/lib/noir"
 
 export default function CampaignRegistration({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -55,10 +56,11 @@ export default function CampaignRegistration({ params }: { params: { id: string 
         router.push(`/campaigns/${campaignId}`)
       }
 
-      // Check if already registered (token exists in localStorage)
-      const storedToken = localStorage.getItem(`campaign_token_${campaignId}`)
-      if (storedToken) {
-        setRegistrationToken(storedToken)
+      // Check if already registered by looking in localStorage
+      const registeredCampaigns = JSON.parse(localStorage.getItem('registeredCampaigns') || '[]')
+      const existingRegistration = registeredCampaigns.find((reg: any) => reg.campaignId === campaignId)
+      if (existingRegistration) {
+        setRegistrationToken(existingRegistration.token)
         setIsRegistered(true)
         setRegistrationStep("complete")
       }
@@ -71,6 +73,88 @@ export default function CampaignRegistration({ params }: { params: { id: string 
       })
     } finally {
       setIsLoadingCampaign(false)
+    }
+  }
+
+  const generateProofs = async () => {
+    const proofs: any = {}
+
+    if (campaign?.ageRestriction && age) {
+      const ageProof = await NoirUtils.generateAgeProof(Number(age), campaign.ageRestriction)
+      proofs.age_proof = ageProof.proof
+    }
+
+    if (campaign?.countryRestriction && country) {
+      const countryProof = await NoirUtils.generateCountryProof(country, campaign.countryRestriction)
+      proofs.country_proof = countryProof.proof
+    }
+
+    if (campaign?.whitelist && campaign.whitelist.length > 0 && username) {
+      const whitelistProof = await NoirUtils.generateWhitelistProof(username, campaign.whitelist)
+      proofs.whitelist_proof = whitelistProof.proof
+    }
+
+    return proofs
+  }
+
+  const handleRegister = async () => {
+    if (registrationStep === "restrictions" && !validateRestrictions()) {
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      // Generate proofs for restrictions using Noir
+      const proofs = await generateProofs()
+
+      // Register with the backend
+      const response = await campaignsService.registerForCampaign(campaignId, proofs)
+
+      // Save registration token in localStorage
+      const registeredCampaigns = JSON.parse(localStorage.getItem('registeredCampaigns') || '[]')
+      const newRegistration = {
+        campaignId,
+        token: response.registrationKey,
+        registeredAt: new Date().toISOString()
+      }
+
+      // Remove any existing registration for this campaign
+      const filteredRegistrations = registeredCampaigns.filter((reg: any) => reg.campaignId !== campaignId)
+      filteredRegistrations.push(newRegistration)
+      
+      localStorage.setItem('registeredCampaigns', JSON.stringify(filteredRegistrations))
+
+      setRegistrationToken(response.registrationKey)
+      setIsRegistered(true)
+      setRegistrationStep("complete")
+
+      toast({
+        title: "Registration Successful",
+        description: "You have been registered for this campaign.",
+      })
+    } catch (error: any) {
+      console.error("Error registering for campaign:", error)
+      toast({
+        title: "Registration Failed",
+        description: error.response?.data?.message || "Failed to register for the campaign. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const copyToClipboard = () => {
+    if (registrationToken) {
+      navigator.clipboard.writeText(registrationToken)
+      setCopied(true)
+      toast({
+        title: "Token Copied",
+        description: "Registration token copied to clipboard",
+      })
+
+      setTimeout(() => setCopied(false), 2000)
     }
   }
 
@@ -98,7 +182,7 @@ export default function CampaignRegistration({ params }: { params: { id: string 
     )
   }
 
-  const hasRestrictions = campaign.restrictions?.length > 0
+  const hasRestrictions = Boolean(campaign?.restrictions?.length)
 
   const initiateRegistration = () => {
     if (hasRestrictions) {
@@ -142,49 +226,6 @@ export default function CampaignRegistration({ params }: { params: { id: string 
 
     setRestrictionError(null)
     return true
-  }
-
-  const handleRegister = async () => {
-    if (registrationStep === "restrictions" && !validateRestrictions()) {
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      const response = await campaignsService.registerForCampaign(campaignId, {
-        age: age ? Number(age) : undefined,
-        country,
-        username
-      })
-
-      setRegistrationToken(response.token)
-      localStorage.setItem(`campaign_token_${campaignId}`, response.token)
-      setIsRegistered(true)
-      setRegistrationStep("complete")
-    } catch (error) {
-      console.error("Error registering for campaign:", error)
-      toast({
-        title: "Registration Failed",
-        description: "Failed to register for the campaign. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const copyToClipboard = () => {
-    if (registrationToken) {
-      navigator.clipboard.writeText(registrationToken)
-      setCopied(true)
-      toast({
-        title: "Token Copied",
-        description: "Registration token copied to clipboard",
-      })
-
-      setTimeout(() => setCopied(false), 2000)
-    }
   }
 
   if (campaign.status !== "upcoming") {

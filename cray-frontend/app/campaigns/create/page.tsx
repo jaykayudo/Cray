@@ -19,6 +19,8 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { campaignsService } from '@/services/campaigns';
+import { toast } from 'sonner';
 
 export default function CreateCampaignPage() {
   const { isAuthenticated } = useAuth();
@@ -39,6 +41,7 @@ export default function CreateCampaignPage() {
   const [openCountrySelect, setOpenCountrySelect] = useState(false)
   const [whitelist, setWhitelist] = useState(false)
   const [whitelistIds, setWhitelistIds] = useState("")
+  const [restrictions, setRestrictions] = useState<string[]>([])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -64,16 +67,38 @@ export default function CreateCampaignPage() {
     setOptions(options.map((option) => (option.id === id ? { ...option, text } : option)))
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-    // Here you would submit the campaign data to your backend
-    // For now, we'll just simulate a delay and redirect
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push("/")
-    }, 1000)
+    try {
+      const formData = new FormData(e.currentTarget);
+      const data = {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        startDate: formData.get('startDate') as string,
+        endDate: formData.get('endDate') as string,
+        options: options.map(option => ({ text: option.text })),
+        restrictions: restrictions.length > 0 ? restrictions : undefined
+      };
+
+      await campaignsService.createCampaign(data);
+      toast.success('Campaign created successfully');
+      router.push('/campaigns');
+    } catch (error) {
+      console.error('Error creating campaign:', error);
+      toast.error('Failed to create campaign');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const toggleRestriction = (restriction: string) => {
+    setRestrictions(prev =>
+      prev.includes(restriction)
+        ? prev.filter(r => r !== restriction)
+        : [...prev, restriction]
+    );
   }
 
   return (
@@ -215,10 +240,10 @@ export default function CreateCampaignPage() {
                     <Label htmlFor="age-restriction">Age Restriction</Label>
                     <p className="text-sm text-muted-foreground">Require voters to be a minimum age</p>
                   </div>
-                  <Switch id="age-restriction" checked={ageRestriction} onCheckedChange={setAgeRestriction} />
+                  <Switch id="age-restriction" checked={restrictions.includes('age')} onCheckedChange={() => toggleRestriction('age')} />
                 </div>
 
-                {ageRestriction && (
+                {restrictions.includes('age') && (
                   <div className="space-y-2 pl-6 border-l-2 border-muted">
                     <Label htmlFor="min-age">Minimum Age</Label>
                     <Input
@@ -238,10 +263,10 @@ export default function CreateCampaignPage() {
                     <Label htmlFor="country-restriction">Country Restriction</Label>
                     <p className="text-sm text-muted-foreground">Limit voting to specific countries</p>
                   </div>
-                  <Switch id="country-restriction" checked={countryRestriction} onCheckedChange={setCountryRestriction} />
+                  <Switch id="country-restriction" checked={restrictions.includes('country')} onCheckedChange={() => toggleRestriction('country')} />
                 </div>
 
-                {countryRestriction && (
+                {restrictions.includes('country') && (
                   <div className="space-y-2 pl-6 border-l-2 border-muted">
                     <Label htmlFor="country">Allowed Country</Label>
                     <Popover open={openCountrySelect} onOpenChange={setOpenCountrySelect}>
@@ -293,10 +318,10 @@ export default function CreateCampaignPage() {
                     <Label htmlFor="whitelist">Whitelist Only</Label>
                     <p className="text-sm text-muted-foreground">Only allow specific users to register</p>
                   </div>
-                  <Switch id="whitelist" checked={whitelist} onCheckedChange={setWhitelist} />
+                  <Switch id="whitelist" checked={restrictions.includes('whitelist')} onCheckedChange={() => toggleRestriction('whitelist')} />
                 </div>
 
-                {whitelist && (
+                {restrictions.includes('whitelist') && (
                   <div className="space-y-2 pl-6 border-l-2 border-muted">
                     <Label htmlFor="whitelist-ids">Whitelisted IDs</Label>
                     <Textarea

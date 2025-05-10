@@ -9,63 +9,97 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { CalendarIcon, Users, Settings, Shield, LogIn, Lock } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useAuth } from "@/contexts/AuthContext"
+import { userService, UserProfile, UserCampaign } from "@/services/user"
+import { campaignsService } from "@/services/campaigns"
+import { toast } from "sonner"
+import { getCampaignStatus, CampaignStatus } from "@/utils/campaignStatus"
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [createdCampaigns, setCreatedCampaigns] = useState<UserCampaign[]>([])
+  const [registeredCampaigns, setRegisteredCampaigns] = useState<UserCampaign[]>([])
 
-  // Simulate checking login status
   useEffect(() => {
-    // In a real app, you would check if the user is logged in
-    // For demo purposes, we'll use localStorage
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true"
-    setIsLoggedIn(loggedIn)
-    setIsLoading(false)
-  }, [])
+    if (!isAuthenticated) {
+      setIsLoading(false)
+      return
+    }
 
-  // This would come from a database in a real application
-  const userCampaigns = {
-    created: [
-      {
-        id: 1,
-        title: "Company Board Election 2025",
-        description: "Vote for the new board members for the upcoming fiscal year.",
-        startDate: "2025-06-01T00:00:00Z",
-        endDate: "2025-06-15T00:00:00Z",
-        status: "upcoming",
-        registeredVoters: 124,
-      },
-      {
-        id: 3,
-        title: "Annual Budget Allocation",
-        description: "Vote on how to allocate the annual budget across departments.",
-        startDate: "2025-04-15T00:00:00Z",
-        endDate: "2025-04-30T00:00:00Z",
-        status: "closed",
-        registeredVoters: 156,
-      },
-    ],
-    registered: [
-      {
-        id: 2,
-        title: "Product Feature Prioritization",
-        description: "Help us decide which features to prioritize in our next release.",
-        startDate: "2025-05-10T00:00:00Z",
-        endDate: "2025-05-20T00:00:00Z",
-        status: "active",
-        registeredVoters: 89,
-      },
-    ],
-  }
+    const loadProfileData = async () => {
+      try {
+        const [profileData, createdData] = await Promise.all([
+          userService.getProfile(),
+          userService.getCreatedCampaigns()
+        ])
+        setProfile(profileData)
+        setCreatedCampaigns(createdData)
 
-  const userInfo = {
-    name: "Jane Smith",
-    username: "janesmith",
-  }
+        // Get registered campaign IDs from localStorage
+        const registeredCampaignIds = JSON.parse(localStorage.getItem('registeredCampaigns') || '[]')
+        
+        // Fetch full campaign details for each registered campaign
+        const registeredCampaignsData = await Promise.all(
+          registeredCampaignIds.map(async (id: number) => {
+            try {
+              return await campaignsService.getCampaign(id)
+            } catch (error) {
+              console.error(`Error fetching campaign ${id}:`, error)
+              return null
+            }
+          })
+        )
+
+        // Filter out any failed campaign fetches and transform to UserCampaign format
+        const validCampaigns = registeredCampaignsData
+          .filter((campaign): campaign is NonNullable<typeof campaign> => campaign !== null)
+          .map(campaign => ({
+            id: campaign.id,
+            title: campaign.title,
+            description: campaign.description,
+            startDate: campaign.startDate,
+            endDate: campaign.endDate,
+            status: campaign.status,
+            registeredVoters: campaign.totalVotes
+          }))
+
+        setRegisteredCampaigns(validCampaigns)
+      } catch (error) {
+        console.error('Error loading profile data:', error)
+        toast.error('Failed to load profile data')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadProfileData()
+  }, [isAuthenticated])
 
   if (isLoading) {
     return <div className="container mx-auto py-8 px-4 text-center">Loading...</div>
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center space-y-4">
+              <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
+              <h3 className="text-lg font-medium">Login Required</h3>
+              <p className="text-muted-foreground">You need to be logged in to view your profile.</p>
+              <Button onClick={() => router.push("/auth/login")} className="mt-2">
+                <LogIn className="mr-2 h-4 w-4" />
+                Log in
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -75,16 +109,16 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Profile</CardTitle>
-              <CardDescription>{isLoggedIn ? "Your personal information" : "User information"}</CardDescription>
+              <CardDescription>{isAuthenticated ? "Your personal information" : "User information"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
-                <p>{isLoggedIn ? userInfo.name : "Anonymous"}</p>
+                <p>{isAuthenticated ? profile?.name : "Anonymous"}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Username</h3>
-                <p>{isLoggedIn ? `@${userInfo.username}` : "Anonymous"}</p>
+                <p>{isAuthenticated ? `@${profile?.username}` : "Anonymous"}</p>
               </div>
 
               <Alert className="bg-primary/5 border-primary/20">
@@ -95,11 +129,15 @@ export default function ProfilePage() {
                 </AlertDescription>
               </Alert>
             </CardContent>
-            {isLoggedIn && (
+            {isAuthenticated && (
               <CardFooter>
                 <Button variant="outline" className="w-full" onClick={() => router.push("/profile/edit")}>
                   <Settings className="mr-2 h-4 w-4" />
                   Edit Profile
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => router.push("/profile/change-password")}>
+                  <Lock className="mr-2 h-4 w-4" />
+                  Change Password
                 </Button>
               </CardFooter>
             )}
@@ -114,18 +152,15 @@ export default function ProfilePage() {
             </TabsList>
 
             <TabsContent value="created" className="space-y-4">
-              {isLoggedIn ? (
-                userCampaigns.created.map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)
+              {createdCampaigns.length > 0 ? (
+                createdCampaigns.map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)
               ) : (
                 <Card>
                   <CardContent className="py-8">
                     <div className="text-center space-y-4">
-                      <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
-                      <h3 className="text-lg font-medium">Login Required</h3>
-                      <p className="text-muted-foreground">You need to be logged in to view your created campaigns.</p>
-                      <Button onClick={() => router.push("/auth/login")} className="mt-2">
-                        <LogIn className="mr-2 h-4 w-4" />
-                        Log in
+                      <p className="text-muted-foreground">You haven't created any campaigns yet.</p>
+                      <Button onClick={() => router.push("/campaigns/create")}>
+                        Create Campaign
                       </Button>
                     </div>
                   </CardContent>
@@ -134,9 +169,20 @@ export default function ProfilePage() {
             </TabsContent>
 
             <TabsContent value="registered" className="space-y-4">
-              {userCampaigns.registered.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
-              ))}
+              {registeredCampaigns.length > 0 ? (
+                registeredCampaigns.map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)
+              ) : (
+                <Card>
+                  <CardContent className="py-8">
+                    <div className="text-center space-y-4">
+                      <p className="text-muted-foreground">You haven't registered for any campaigns yet.</p>
+                      <Button onClick={() => router.push("/campaigns")}>
+                        Browse Campaigns
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </div>
@@ -145,7 +191,7 @@ export default function ProfilePage() {
   )
 }
 
-function CampaignCard({ campaign }: { campaign: any }) {
+function CampaignCard({ campaign }: { campaign: UserCampaign }) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -178,7 +224,7 @@ function CampaignCard({ campaign }: { campaign: any }) {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: CampaignStatus }) {
   if (status === "active") {
     return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
   } else if (status === "upcoming") {

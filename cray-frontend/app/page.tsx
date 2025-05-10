@@ -9,6 +9,7 @@ import { Users, VoteIcon, Shield, Lock } from "lucide-react"
 import CampaignCountdown from "@/components/campaign-countdown"
 import { campaignsService, Campaign } from "@/services/campaigns"
 import { toast } from "sonner"
+import { getCampaignStatus, CampaignStatus } from "@/utils/campaignStatus"
 
 export default function Home() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
@@ -110,7 +111,7 @@ export default function Home() {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-xl">{campaign.title}</CardTitle>
-                  <StatusBadge status={campaign.status} />
+                  <StatusBadge status={getCampaignStatus(campaign)} />
                 </div>
                 <CardDescription>{campaign.description}</CardDescription>
               </CardHeader>
@@ -125,13 +126,13 @@ export default function Home() {
               </CardContent>
               <CardFooter>
                 <Link href={`/campaigns/${campaign.id}`} className="w-full">
-                  <Button variant={campaign.status === "active" ? "default" : "outline"} className="w-full">
-                    {campaign.status === "active" ? (
+                  <Button variant={getCampaignStatus(campaign) === "active" ? "default" : "outline"} className="w-full">
+                    {getCampaignStatus(campaign) === "active" ? (
                       <>
                         <VoteIcon className="mr-2 h-4 w-4" />
                         Vote Now
                       </>
-                    ) : campaign.status === "upcoming" ? (
+                    ) : getCampaignStatus(campaign) === "upcoming" ? (
                       "Register to Vote"
                     ) : (
                       "View Results"
@@ -147,7 +148,7 @@ export default function Home() {
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { status: CampaignStatus }) {
   if (status === "active") {
     return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
   } else if (status === "upcoming") {

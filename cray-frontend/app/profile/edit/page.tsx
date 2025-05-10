@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -10,30 +8,44 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Shield, ArrowLeft } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { userService, UserProfile } from "@/services/user"
+import { toast } from "sonner"
 
 export default function EditProfilePage() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
-    name: "Jane Smith",
-    username: "janesmith",
+    name: "",
+    username: "",
   })
 
-  // Simulate checking login status
   useEffect(() => {
-    // In a real app, you would check if the user is logged in
-    // For demo purposes, we'll use localStorage
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true"
-    setIsLoggedIn(loggedIn)
-    setIsLoading(false)
-
-    // Redirect if not logged in
-    if (!loggedIn) {
-      router.push("/auth/login")
+    if (!isAuthenticated) {
+      router.push('/auth/login')
+      return
     }
-  }, [router])
+
+    const loadProfile = async () => {
+      try {
+        const profile = await userService.getProfile()
+        setFormData({
+          name: profile.name,
+          username: profile.username,
+        })
+      } catch (error) {
+        console.error('Error loading profile:', error)
+        toast.error('Failed to load profile')
+        router.push('/profile')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadProfile()
+  }, [isAuthenticated, router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -44,19 +56,24 @@ export default function EditProfilePage() {
     e.preventDefault()
     setIsSaving(true)
 
-    // Simulate saving profile
-    setTimeout(() => {
+    try {
+      await userService.updateProfile(formData)
+      toast.success('Profile updated successfully')
+      router.push('/profile')
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      toast.error('Failed to update profile')
+    } finally {
       setIsSaving(false)
-      router.push("/profile")
-    }, 1000)
+    }
   }
 
   if (isLoading) {
     return <div className="container mx-auto py-8 px-4 text-center">Loading...</div>
   }
 
-  if (!isLoggedIn) {
-    return null // Will redirect in useEffect
+  if (!isAuthenticated) {
+    return null
   }
 
   return (

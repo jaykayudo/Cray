@@ -3,6 +3,7 @@ import { AppDataSource } from "../config/database";
 import { User } from "../entities/User";
 import { sign } from "jsonwebtoken";
 import { ProofVerification } from "../utils/proofVerification";
+import { Not } from "typeorm";
 
 const userRepository = AppDataSource.getRepository(User);
 
@@ -107,6 +108,129 @@ export class AuthController {
         } catch (error) {
             console.error('Error getting password hash:', error);
             return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+
+    async getProfile(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.userId;
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            const user = await userRepository.findOne({ 
+                where: { id: userId },
+                select: {
+                    id: true,
+                    fullName: true,
+                    username: true,
+                    createdAt: true
+                }
+            });
+
+            if (!user) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            return res.json({
+                id: user.id,
+                name: user.fullName,
+                username: user.username,
+                createdAt: user.createdAt
+            });
+        } catch (error) {
+            console.error('Error getting profile:', error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    async updateProfile(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.userId;
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            const { name, username } = req.body;
+
+            // Check if username is already taken by another user
+            if (username) {
+                const existingUser = await userRepository.findOne({ 
+                    where: { 
+                        username,
+                        id: Not(userId)
+                    }
+                });
+                if (existingUser) {
+                    return res.status(400).json({ message: "Username already taken" });
+                }
+            }
+
+            const user = await userRepository.findOne({ where: { id: userId } });
+            if (!user) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            // Update user fields
+            if (name) user.fullName = name; 
+            if (username) user.username = username;
+
+            await userRepository.save(user);
+
+            return res.json({
+                id: user.id,
+                name: user.fullName,
+                username: user.username,
+                createdAt: user.createdAt
+            });
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    async changePassword(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user?.userId;
+            if (!userId) {
+                return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            const { currentPasswordProof, newPasswordHash, newPasswordHashProof } = req.body;
+
+            const user = await userRepository.findOne({ where: { id: userId } });
+            if (!user) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            // Verify current password
+            const isCurrentPasswordValid = await ProofVerification.verifyPasswordProof(
+                currentPasswordProof,
+                { passwordHash: user.password }
+            );
+
+            if (!isCurrentPasswordValid) {
+                return res.status(401).json({ message: "Current password is incorrect" });
+            }
+
+            // Verify new password hash proof
+            const isNewPasswordHashValid = await ProofVerification.verifyPasswordProof(
+                newPasswordHashProof,
+                { passwordHash: newPasswordHash }
+            );
+
+            if (!isNewPasswordHashValid) {
+                return res.status(400).json({ message: "Invalid new password hash proof" });
+            }
+
+            // Update password
+            user.password = newPasswordHash;
+            await userRepository.save(user);
+
+            return res.json({ message: "Password updated successfully" });
+        } catch (error) {
+            console.error('Error changing password:', error);
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 } 

@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -10,10 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Shield, ArrowLeft, Lock } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
+import { userService } from "@/services/user"
+import { toast } from "sonner"
 
 export default function ChangePasswordPage() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [formData, setFormData] = useState({
@@ -22,19 +23,13 @@ export default function ChangePasswordPage() {
     confirmPassword: "",
   })
 
-  // Simulate checking login status
   useEffect(() => {
-    // In a real app, you would check if the user is logged in
-    // For demo purposes, we'll use localStorage
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true"
-    setIsLoggedIn(loggedIn)
-    setIsLoading(false)
-
-    // Redirect if not logged in
-    if (!loggedIn) {
-      router.push("/auth/login")
+    if (!isAuthenticated) {
+      router.push('/auth/login')
+      return
     }
-  }, [router])
+    setIsLoading(false)
+  }, [isAuthenticated, router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -43,21 +38,35 @@ export default function ChangePasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (formData.newPassword !== formData.confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+
     setIsSaving(true)
 
-    // Simulate saving password
-    setTimeout(() => {
+    try {
+      await userService.changePassword({
+        currentPassword: formData.currentPassword,
+        newPassword: formData.newPassword,
+      })
+      toast.success('Password updated successfully')
+      router.push('/profile')
+    } catch (error) {
+      console.error('Error changing password:', error)
+      toast.error('Failed to change password')
+    } finally {
       setIsSaving(false)
-      router.push("/profile")
-    }, 1000)
+    }
   }
 
   if (isLoading) {
     return <div className="container mx-auto py-8 px-4 text-center">Loading...</div>
   }
 
-  if (!isLoggedIn) {
-    return null // Will redirect in useEffect
+  if (!isAuthenticated) {
+    return null
   }
 
   return (
