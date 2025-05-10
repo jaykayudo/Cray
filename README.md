@@ -22,7 +22,8 @@ Cray is a privacy preserving voting platform that leverages zero-knowledge proof
 - Intuitive campaign creation and voting process
 - Status indicators for campaign phases (upcoming, active, ended)
 
-[Screenshot of Campaign Dashboard]
+![Screenshot from 2025-05-10 03-10-26](https://github.com/user-attachments/assets/3abbc465-fb3b-4438-8ef5-4d176f106937)
+
 
 ### Privacy Features
 - Password verification using Noir circuits
@@ -30,7 +31,11 @@ Cray is a privacy preserving voting platform that leverages zero-knowledge proof
 - Country verification without exposing location
 - Whitelist verification while maintaining anonymity
 
-[Screenshot of Privacy Features]
+![Screenshot from 2025-05-10 03-45-14](https://github.com/user-attachments/assets/cdc75da4-5d8a-4138-b348-85ba343457b4)
+
+![Screenshot from 2025-05-10 03-45-26](https://github.com/user-attachments/assets/750bad0b-ab58-4aa4-9db5-40acc7ab09f1)
+
+
 
 ## 🏗 Architecture
 
@@ -153,7 +158,11 @@ cray/
 3. Backend verifies proof using Noir verifier
 4. JWT token issued upon successful verification
 
-[Screenshot of Authentication Flow]
+![Screenshot from 2025-05-10 03-11-35](https://github.com/user-attachments/assets/b3212fd2-ffca-4193-abe9-d26a2924dacd)
+
+![Screenshot from 2025-05-10 03-11-43](https://github.com/user-attachments/assets/14098f76-2003-4185-b24e-47b1b212dfd9)
+
+
 
 ## 🛠 API Endpoints
 
