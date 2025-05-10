@@ -1,12 +1,29 @@
 "use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, Users, Settings } from "lucide-react"
+import { CalendarIcon, Users, Settings, Shield, LogIn, Lock } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ProfilePage() {
+  const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Simulate checking login status
+  useEffect(() => {
+    // In a real app, you would check if the user is logged in
+    // For demo purposes, we'll use localStorage
+    const loggedIn = localStorage.getItem("isLoggedIn") === "true"
+    setIsLoggedIn(loggedIn)
+    setIsLoading(false)
+  }, [])
+
   // This would come from a database in a real application
   const userCampaigns = {
     created: [
@@ -44,7 +61,11 @@ export default function ProfilePage() {
 
   const userInfo = {
     name: "Jane Smith",
-    email: "jane.smith@example.com",
+    username: "janesmith",
+  }
+
+  if (isLoading) {
+    return <div className="container mx-auto py-8 px-4 text-center">Loading...</div>
   }
 
   return (
@@ -54,24 +75,34 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Profile</CardTitle>
-              <CardDescription>Your personal information</CardDescription>
+              <CardDescription>{isLoggedIn ? "Your personal information" : "User information"}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
-                <p>{userInfo.name}</p>
+                <p>{isLoggedIn ? userInfo.name : "Anonymous"}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-                <p>{userInfo.email}</p>
+                <h3 className="text-sm font-medium text-muted-foreground">Username</h3>
+                <p>{isLoggedIn ? `@${userInfo.username}` : "Anonymous"}</p>
               </div>
+
+              <Alert className="bg-primary/5 border-primary/20">
+                <Shield className="h-4 w-4 text-primary" />
+                <AlertTitle className="text-primary">Privacy Protected</AlertTitle>
+                <AlertDescription className="text-primary/80">
+                  Your identity is never linked to your votes. All voting activity remains private.
+                </AlertDescription>
+              </Alert>
             </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full">
-                <Settings className="mr-2 h-4 w-4" />
-                Edit Profile
-              </Button>
-            </CardFooter>
+            {isLoggedIn && (
+              <CardFooter>
+                <Button variant="outline" className="w-full" onClick={() => router.push("/profile/edit")}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Edit Profile
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         </div>
 
@@ -83,9 +114,23 @@ export default function ProfilePage() {
             </TabsList>
 
             <TabsContent value="created" className="space-y-4">
-              {userCampaigns.created.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
-              ))}
+              {isLoggedIn ? (
+                userCampaigns.created.map((campaign) => <CampaignCard key={campaign.id} campaign={campaign} />)
+              ) : (
+                <Card>
+                  <CardContent className="py-8">
+                    <div className="text-center space-y-4">
+                      <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <h3 className="text-lg font-medium">Login Required</h3>
+                      <p className="text-muted-foreground">You need to be logged in to view your created campaigns.</p>
+                      <Button onClick={() => router.push("/auth/login")} className="mt-2">
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Log in
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="registered" className="space-y-4">
