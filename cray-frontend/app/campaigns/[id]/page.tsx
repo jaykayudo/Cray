@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,34 +8,77 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { CalendarIcon, CheckCircle2, Users, Trophy } from "lucide-react"
+import { CalendarIcon, CheckCircle2, Users, Trophy, AlertCircle, Lock, Shield } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Input } from "@/components/ui/input"
 import CampaignCountdown from "@/components/campaign-countdown"
 import { Confetti } from "@/components/confetti"
+import { useToast } from "@/hooks/use-toast"
+import { campaignsService, Campaign } from "@/services/campaigns"
 
 export default function CampaignPage({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const { toast } = useToast()
   const campaignId = Number.parseInt(params.id)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [hasVoted, setHasVoted] = useState(false)
-  const [isRegistered, setIsRegistered] = useState(false)
+  const [isValidating, setIsValidating] = useState(false)
+  const [registrationToken, setRegistrationToken] = useState("")
+  const [tokenError, setTokenError] = useState<string | null>(null)
+  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // This would come from a database in a real application
-  const campaign = {
-    id: campaignId,
-    title: campaignId === 2 ? "Product Feature Prioritization" : "Example Campaign",
-    description: "Help us decide which features to prioritize in our next release.",
-    startDate: "2025-05-10T00:00:00Z",
-    endDate: "2025-05-20T00:00:00Z",
-    status: campaignId === 2 ? "active" : campaignId === 3 ? "closed" : "upcoming",
-    registeredVoters: 89,
-    options: [
-      { id: 1, text: "Improved Dashboard Analytics", votes: 32 },
-      { id: 2, text: "Mobile App Integration", votes: 45 },
-      { id: 3, text: "Advanced User Permissions", votes: 18 },
-      { id: 4, text: "API Enhancements", votes: 27 },
-    ],
-    restrictions: ["age:21+"],
+  useEffect(() => {
+    loadCampaign()
+  }, [campaignId])
+
+  const loadCampaign = async () => {
+    try {
+      const data = await campaignsService.getCampaign(campaignId)
+      setCampaign(data)
+    } catch (error) {
+      console.error("Error loading campaign:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load campaign details",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (campaign?.status === "active") {
+      const storedToken = localStorage.getItem(`campaign_token_${campaignId}`)
+      if (storedToken) {
+        setRegistrationToken(storedToken)
+      }
+    }
+  }, [campaignId, campaign?.status])
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-3xl">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/4" />
+          <div className="h-4 bg-muted rounded w-3/4" />
+          <div className="h-4 bg-muted rounded w-1/2" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!campaign) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-3xl">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Campaign not found</AlertTitle>
+          <AlertDescription>The campaign you're looking for doesn't exist or has been removed.</AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   const totalVotes = campaign.options.reduce((sum, option) => sum + option.votes, 0)
@@ -44,15 +87,46 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
       ? campaign.options.reduce((prev, current) => (prev.votes > current.votes ? prev : current))
       : null
 
-  const handleVote = () => {
-    if (!selectedOption) return
-    // Here you would submit the vote to your backend
-    setHasVoted(true)
+  const handleVote = async () => {
+    if (!selectedOption || !registrationToken.trim()) {
+      if (!registrationToken.trim()) {
+        setTokenError("Please enter your registration token")
+      }
+      return
+    }
+
+    setIsValidating(true)
+    setTokenError(null)
+
+    try {
+      await campaignsService.vote(campaignId, {
+        optionId: Number(selectedOption),
+        registrationToken
+      })
+      
+      setHasVoted(true)
+      toast({
+        title: "Vote Submitted",
+        description: "Your vote has been recorded securely and anonymously.",
+      })
+    } catch (error) {
+      console.error("Error submitting vote:", error)
+      setTokenError("Invalid registration token. Please check and try again.")
+    } finally {
+      setIsValidating(false)
+    }
   }
 
-  const handleRegister = () => {
-    // Here you would submit the registration to your backend
-    setIsRegistered(true)
+  const handleRegisterClick = () => {
+    if (campaign.status === "upcoming") {
+      router.push(`/campaigns/${campaignId}/register`)
+    } else {
+      toast({
+        title: "Registration Closed",
+        description: "This campaign is already active or has ended. Registration is no longer available.",
+        variant: "destructive",
+      })
+    }
   }
 
   const getStatusContent = () => {
@@ -68,12 +142,15 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
       )
     }
 
-    if (campaign.status === "active" && !isRegistered) {
+    if (campaign.status === "active" && !hasVoted) {
       return (
         <Alert className="mb-6">
-          <Users className="h-4 w-4" />
-          <AlertTitle>You're not registered for this campaign</AlertTitle>
-          <AlertDescription>You need to register to participate in this vote</AlertDescription>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Registration Token Required</AlertTitle>
+          <AlertDescription>
+            You need a registration token to vote in this campaign. If you registered earlier, your token will be used
+            automatically.
+          </AlertDescription>
         </Alert>
       )
     }
@@ -101,9 +178,9 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
 
       <div className="flex items-center text-sm text-muted-foreground mb-6">
         <Users className="mr-2 h-4 w-4" />
-        <span>{campaign.registeredVoters} registered voters</span>
+        <span>{campaign.totalVotes} registered voters</span>
 
-        {campaign.restrictions.length > 0 && (
+        {campaign.restrictions?.length > 0 && (
           <div className="flex ml-4 gap-1">
             {campaign.restrictions.map((restriction, index) => {
               const [type, value] = restriction.split(":")
@@ -119,13 +196,23 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
         )}
       </div>
 
+      <Alert className="mb-6 bg-primary/5 border-primary/20">
+        <Shield className="h-4 w-4 text-primary" />
+        <AlertTitle className="text-primary">Private Voting Protocol</AlertTitle>
+        <AlertDescription className="text-primary/80">
+          Cray ensures your vote remains anonymous. Your identity is never linked to your voting choice.
+        </AlertDescription>
+      </Alert>
+
       {getStatusContent()}
 
       {hasVoted && (
         <Alert className="mb-6 bg-green-50 border-green-200">
           <CheckCircle2 className="h-4 w-4 text-green-500" />
           <AlertTitle className="text-green-700">Thank you for voting!</AlertTitle>
-          <AlertDescription className="text-green-600">Your vote has been recorded successfully</AlertDescription>
+          <AlertDescription className="text-green-600">
+            Your vote has been recorded securely and anonymously
+          </AlertDescription>
         </Alert>
       )}
 
@@ -173,34 +260,54 @@ export default function CampaignPage({ params }: { params: { id: string } }) {
               })}
             </div>
           ) : (
-            <RadioGroup
-              value={selectedOption || ""}
-              onValueChange={setSelectedOption}
-              className="space-y-3"
-              disabled={campaign.status !== "active" || !isRegistered}
-            >
-              {campaign.options.map((option) => (
-                <div key={option.id} className="flex items-center space-x-2">
-                  <RadioGroupItem value={option.id.toString()} id={`option-${option.id}`} />
-                  <Label htmlFor={`option-${option.id}`} className="flex-grow cursor-pointer py-2">
-                    {option.text}
-                  </Label>
+            <div className="space-y-6">
+              <RadioGroup
+                value={selectedOption || ""}
+                onValueChange={setSelectedOption}
+                className="space-y-3"
+                disabled={campaign.status !== "active"}
+              >
+                {campaign.options.map((option) => (
+                  <div key={option.id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={option.id.toString()} id={`option-${option.id}`} />
+                    <Label htmlFor={`option-${option.id}`} className="flex-grow cursor-pointer py-2">
+                      {option.text}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+
+              {campaign.status === "active" && !hasVoted && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="token">Registration Token</Label>
+                    <Input
+                      id="token"
+                      value={registrationToken}
+                      onChange={(e) => setRegistrationToken(e.target.value)}
+                      placeholder="Enter your registration token"
+                      className={tokenError ? "border-red-500" : ""}
+                    />
+                    {tokenError && <p className="text-sm text-red-500 mt-1">{tokenError}</p>}
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={handleVote}
+                    disabled={!selectedOption || isValidating}
+                  >
+                    {isValidating ? "Validating..." : "Submit Vote"}
+                  </Button>
                 </div>
-              ))}
-            </RadioGroup>
+              )}
+            </div>
           )}
         </CardContent>
-        {campaign.status === "active" && (
+        {campaign.status === "upcoming" && (
           <CardFooter>
-            {isRegistered ? (
-              <Button onClick={handleVote} disabled={!selectedOption || hasVoted} className="w-full">
-                {hasVoted ? "Vote Submitted" : "Submit Vote"}
-              </Button>
-            ) : (
-              <Button onClick={handleRegister} className="w-full">
-                Register for this Campaign
-              </Button>
-            )}
+            <Button className="w-full" onClick={handleRegisterClick}>
+              Register to Vote
+            </Button>
           </CardFooter>
         )}
       </Card>

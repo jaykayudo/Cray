@@ -44,7 +44,15 @@ services:
       context: ./cray-frontend
       dockerfile: ./cray-frontend/Dockerfile
     container_name: cray-frontend
-    
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - cray-backend
+    networks:
+      - cray-network
 
 volumes:
   postgres_data:

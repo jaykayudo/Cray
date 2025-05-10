@@ -89,4 +89,24 @@ export class AuthController {
             return res.status(500).json({ message: "Internal server error" });
         }
     }
+
+    async getPasswordHash(req: Request, res: Response) {
+        try {
+            const { username } = req.params;
+            
+            const user = await userRepository.findOne({
+                where: { username },
+                select: { password: true }
+            });
+
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            return res.json({ passwordHash: user.password });
+        } catch (error) {
+            console.error('Error getting password hash:', error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
 } 
