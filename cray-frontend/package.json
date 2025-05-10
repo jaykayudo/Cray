@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "lint": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -47,12 +45,12 @@
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
-    "next": "14.1.0",
+    "next": "15.2.4",
     "next-themes": "^0.4.4",
-    "react": "^18.2.0",
+    "react": "^19",
     "react-confetti": "latest",
     "react-day-picker": "8.10.1",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19",
     "react-hook-form": "^7.54.1",
     "react-resizable-panels": "^2.1.7",
     "react-use": "latest",
@@ -62,31 +60,17 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
-    "@types/node": "^16.18.0",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
     "axios": "^1.6.7",
-    "react-router-dom": "^6.20.0",
-    "react-scripts": "5.0.1",
-    "typescript": "^4.9.5",
     "@noir-lang/noir_js": "^1.0.0-beta.2",
     "@aztec/bb.js": "^0.72.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.19",
-    "@types/react": "^18.2.57",
-    "@types/react-dom": "^18.2.19",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "postcss": "^8",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.3.3",
-    "eslint": "^8.56.0",
-    "eslint-config-next": "14.1.0"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+    "typescript": "^5"
   },
   "browserslist": {
     "production": [
